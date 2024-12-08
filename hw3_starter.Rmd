@@ -146,7 +146,7 @@ plot_cp <- function(dat, est, iso_code, CI = 95) {
 
   # Create the plot
   p <- ggplot(est_filtered, aes(x = Year, y = Median)) +
-    geom_line(color = "blue", size = 1) +
+    geom_line(color = "blue") +
     geom_point(data = dat_filtered, aes(x = year, y = cp), color = "black") +
     labs(x = "Time", y = "Modern use (%)", title = est_filtered$`Country or area`[1])
 
@@ -196,7 +196,7 @@ Now it is time to share your work again! Create a repo on your GitHub. Commit an
 
 Note that in order to earn full credits, your GitHub repo commit history should show at least two commits.
 
-Paste your link here...
+https://github.com/CoffeeLover-872/advRHW3-lastprojectyay.git
 
 ## Exercise 4 (extra credit): write a test for function `get_width_ci`
 
