@@ -1,0 +1,218 @@
+---
+title: "HW3- Daniel Lu"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Summary
+
+In HW2, we created an R package with functions with documentation. In this HW, we are going to add some additional functionality to that R package, including error messages and tests (extra credit), to make the package robust. You should start from what you have from HW2.
+
+
+## What to hand in
+Please submit your zipped package and associated files described below.
+The submission needs to contain:
+
+1. an R package that includes the functions needed for the HW exercises.
+2. an R notebook called hw3_exercises.Rmd and associated knitted html that shows the function calls and output as displayed in the hw3 starter Rmd/html with example solutions.
+3. a link to your GitHub repo, which contains your package, Rmd, and knitted html file.
+
+Grading: 25 points + 5 points extra credit
+
+- 10 points for exercise 1
+- 10 points for exercise 2
+- 5 points for exercise 3
+- 5 points extra credit for exercise 4
+- Maximum point for HW3 is 25.
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(testthat)
+library(assertthat)
+library(devtools)
+```
+
+```{r}
+# to load your package
+# my package is called hw3
+# load_all("../hw3")
+
+load_all("C:/Users/danie/OneDrive/Desktop/Repository 2 (Adv R HW #2)/advRHW2-electricbogaloo/Rpackage")
+```
+
+
+# HW3 exercises
+
+In HW3, we will keep working on the package we developed in HWs 1 and 2. We will (i) extend the plotting function to provide informative error messages if the function is called with incorrect inputs, (ii) add a new function, and (iii) write a test for the new function in the package. 
+
+As a reminder, the data set csv file contraceptive_use.csv (which should be put under `data` folder within your R package) contains observed mCPR values. Relevant variable info is as follows:
+
+- contraceptive_use_modern = observed mCPR 
+- division_numeric_code = country iso code
+- is_in_union == "Y" refers to observations among married women. 
+- (start_date + end_date)/2 is the reference time for the observation. 
+
+```{r}
+# read files in data folder
+
+contraceptive_use <- read_csv("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay/data/contraceptive_use-2.csv")
+
+est <- read_csv("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay/data/est-2.csv")
+
+```
+
+
+## Exercise 1: write a new function `get_width_ci()` to calculate the width of the uncertainty intervals
+
+Write a function `get_width_ci` that calculates the widths of the uncertainty intervals for a country, based on 95 or 80% bounds. The function output should be a data frame, where the first column is the year, and the second column is the corresponding interval width.
+
+Similar to HW2, in this HW3, you should not define the `get_width_ci()` in this Rmd. Instead, you should define it in `R/get_width_ci.R` file and load it by `load_all()` function call before.
+
+You should be able to replicate the following results:
+
+```{r}
+devtools::load_all("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay/GetWidthCI/R/get_width_ci.R")
+```
+
+
+```{r, include= T}
+# make sure you've run csv file source above!
+get_width_ci(est, iso_code = 4, coverage = 95)
+get_width_ci(est, iso_code = 4, coverage = 80)
+```
+
+## Exercise 2: add error messages in `plot_cp`
+Extend the function `plot_cp` such that it produces an informative error message when 
+
+(a) input "dat" does NOT contain variable iso, info on reference year, and/or contraceptive_use_modern 
+(b) iso_code is not found in "dat" or "est"
+(c) contraceptive_use_modern is not numeric
+(d) CI is not one of 80, 95, or NA
+
+Write code (function calls) in your notebook to print the error message (set chunk options as in starter code Rmd to make sure that you can still knit the rmd). See examples below.
+
+
+```{r}
+dat <- read_csv("data/contraceptive_use-2.csv")
+est <- read_csv("data/est-2.csv")
+
+plot_cp <- function(dat, est, iso_code, CI = 95) {
+
+  # Check if 'dat' contains required columns 
+  assert_that(
+    "division_numeric_code" %in% colnames(dat),
+    msg = "Input data file `dat` and estimates file `est` must contain the variable `division_numeric_code`."
+  )
+  assert_that(
+    all(c("start_date", "end_date") %in% colnames(dat)),
+    msg = "Input data file `dat` must contain variables `start_date` and `end_date` to compute `year`."
+  )
+  assert_that(
+    "contraceptive_use_modern" %in% colnames(dat),
+    msg = "Input data file `dat` must contain the variable `contraceptive_use_modern` to compute `cp`."
+  )
+
+  # Process the data
+  dat_processed <- dat %>%
+    filter(division_numeric_code == iso_code & is_in_union == "Y") %>%
+    mutate(year = (start_date + end_date) / 2,
+           cp = contraceptive_use_modern * 100) %>%
+    select(division_numeric_code, year, cp)
+
+  # Filter data for the specified ISO code
+  est_filtered <- est %>% filter(iso == iso_code)
+  dat_filtered <- dat_processed %>% filter(division_numeric_code == iso_code)
+
+  # Check if iso_code exists in 'dat' and 'est'
+  if (!(iso_code %in% dat$division_numeric_code)) {
+    stop("Error: `iso_code` not found in `dat`.")
+  }
+  if (!(iso_code %in% est$iso)) {
+    stop("Error: `iso_code` not found in `est`.")
+  }
+
+  # Check if contraceptive_use_modern is numeric
+  assert_that(
+    is.numeric(dat$contraceptive_use_modern),
+    msg = "Error: `contraceptive_use_modern` must be numeric."
+  )
+
+  # Check if CI is valid (80, 95, or NA)
+  if (!(CI %in% c(80, 95, NA))) {
+    stop("Error: `CI` must be one of 80, 95, or NA.")
+  }
+
+  # Create the plot
+  p <- ggplot(est_filtered, aes(x = Year, y = Median)) +
+    geom_line(color = "blue", size = 1) +
+    geom_point(data = dat_filtered, aes(x = year, y = cp), color = "black") +
+    labs(x = "Time", y = "Modern use (%)", title = est_filtered$`Country or area`[1])
+
+  # Add confidence intervals if `CI` is provided
+  if (!is.na(CI)) {
+    if (CI == 95) {
+      p <- p + geom_ribbon(aes(ymin = L95, ymax = U95), fill = "grey", alpha = 0.4)
+    } else if (CI == 80) {
+      p <- p + geom_ribbon(aes(ymin = L80, ymax = U80), fill = "grey", alpha = 0.4)
+    }
+  }
+
+  return(p)
+}
+
+```
+
+
+### Input `dat` does NOT contain variable iso, year and/or cp
+```{r, error= TRUE, include = T}
+plot_cp(dat %>% select(-iso), est, iso_code = 4)
+plot_cp(dat %>% select(-year), est, iso_code = 4)
+plot_cp(dat %>% select(-cp), est, iso_code = 4)
+```
+
+### iso_code is not found in "dat" or "est"
+```{r, error = TRUE, include = T}
+plot_cp(dat %>% select(-iso), est, iso_code = 4)
+plot_cp(dat, est %>% select(-iso), iso_code = 4)
+```
+
+### cp is not numeric
+```{r, error = T, include = T}
+dat_bug <- dat %>%
+  mutate(cp = FALSE)
+plot_cp(dat_bug, est, iso_code = 4)
+```
+
+### CI is not one of 80, 95, or NA
+```{r, error = T, include = T}
+plot_cp(dat, est, iso_code = 4, CI = 99)
+```
+
+## Exercise 3: GitHub
+
+Now it is time to share your work again! Create a repo on your GitHub. Commit and push your package files, Rmd and knitted html to your repo. Paste the link to your GitHub repo below. 
+
+Note that in order to earn full credits, your GitHub repo commit history should show at least two commits.
+
+Paste your link here...
+
+## Exercise 4 (extra credit): write a test for function `get_width_ci`
+
+Add the testing set up to your package and write unit tests to verify that the function `get_width_ci`
+(i) correctly returns the width of a 95% interval, defined as U95-L95, for some dummy data set "est_dummy" (for which you know the answer)
+(ii) returns NA if coverage = 95 and U95 and/or L95 are missing. 
+
+```{r, include = TRUE}
+# make sure library(testthat) has been run before performing this test!!!
+
+library(testthat)
+
+# Source the function
+source("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay/GetWidthCI/R/get_width_ci.R")
+
+testthat::test_file("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay/tests/testthat/test-get_width_ci.R")
+
+```
+
