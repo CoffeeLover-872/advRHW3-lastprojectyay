@@ -39,7 +39,7 @@ library(devtools)
 # my package is called hw3
 # load_all("../hw3")
 
-load_all("C:/Users/danie/OneDrive/Desktop/Repository 2 (Adv R HW #2)/advRHW2-electricbogaloo/Rpackage")
+load_all("C:/Users/danie/OneDrive/Desktop/Repository 3 (Adv R HW #3)/advRHW3-lastprojectyay")
 ```
 
 
@@ -92,54 +92,53 @@ Extend the function `plot_cp` such that it produces an informative error message
 (d) CI is not one of 80, 95, or NA
 
 Write code (function calls) in your notebook to print the error message (set chunk options as in starter code Rmd to make sure that you can still knit the rmd). See examples below.
+***if/stop review:https://bookdown.org/rdpeng/RProgDA/error-handling-and-generation.html#summary-6***
+
+```{r}
+#preprocess data first- advice from professor (IT WORKS OMG)
+
+dat <- read_csv("data/contraceptive_use-2.csv") %>%
+  mutate(
+    iso = division_numeric_code,
+    year = (start_date + end_date) / 2,
+    cp = contraceptive_use_modern * 100
+  )
+```
 
 
 ```{r}
-dat <- read_csv("data/contraceptive_use-2.csv")
 est <- read_csv("data/est-2.csv")
 
 plot_cp <- function(dat, est, iso_code, CI = 95) {
-
-  # Check if 'dat' contains required columns 
+  # Check if `dat` contains required columns
   assert_that(
-    "division_numeric_code" %in% colnames(dat),
-    msg = "Input data file `dat` and estimates file `est` must contain the variable `division_numeric_code`."
+    all(c("iso", "year", "cp") %in% colnames(dat)),
+    msg = "Input data file `dat` must contain variables `iso`, `year`, and `cp`."
   )
   assert_that(
-    all(c("start_date", "end_date") %in% colnames(dat)),
-    msg = "Input data file `dat` must contain variables `start_date` and `end_date` to compute `year`."
-  )
-  assert_that(
-    "contraceptive_use_modern" %in% colnames(dat),
-    msg = "Input data file `dat` must contain the variable `contraceptive_use_modern` to compute `cp`."
+    all(c("iso", "Median", "L95", "U95") %in% colnames(est)),
+    msg = "Input data file `est` must contain variables `iso`, `Median`, `L95`, and `U95`."
   )
 
-  # Process the data
-  dat_processed <- dat %>%
-    filter(division_numeric_code == iso_code & is_in_union == "Y") %>%
-    mutate(year = (start_date + end_date) / 2,
-           cp = contraceptive_use_modern * 100) %>%
-    select(division_numeric_code, year, cp)
-
-  # Filter data for the specified ISO code
+  # Filter data
+  dat_filtered <- dat %>% filter(iso == iso_code)
   est_filtered <- est %>% filter(iso == iso_code)
-  dat_filtered <- dat_processed %>% filter(division_numeric_code == iso_code)
 
-  # Check if iso_code exists in 'dat' and 'est'
-  if (!(iso_code %in% dat$division_numeric_code)) {
+  # Check if `iso_code` exists in both `dat` and `est`
+  if (nrow(dat_filtered) == 0) {
     stop("Error: `iso_code` not found in `dat`.")
   }
-  if (!(iso_code %in% est$iso)) {
+  if (nrow(est_filtered) == 0) {
     stop("Error: `iso_code` not found in `est`.")
   }
 
-  # Check if contraceptive_use_modern is numeric
+  # Check if `cp` is numeric
   assert_that(
-    is.numeric(dat$contraceptive_use_modern),
-    msg = "Error: `contraceptive_use_modern` must be numeric."
+    is.numeric(dat$cp),
+    msg = "Error: `cp` in data file `dat` must be numeric."
   )
 
-  # Check if CI is valid (80, 95, or NA)
+  # Validate `CI`
   if (!(CI %in% c(80, 95, NA))) {
     stop("Error: `CI` must be one of 80, 95, or NA.")
   }
@@ -150,7 +149,7 @@ plot_cp <- function(dat, est, iso_code, CI = 95) {
     geom_point(data = dat_filtered, aes(x = year, y = cp), color = "black") +
     labs(x = "Time", y = "Modern use (%)", title = est_filtered$`Country or area`[1])
 
-  # Add confidence intervals if `CI` is provided
+  # Add confidence intervals
   if (!is.na(CI)) {
     if (CI == 95) {
       p <- p + geom_ribbon(aes(ymin = L95, ymax = U95), fill = "grey", alpha = 0.4)
@@ -161,7 +160,6 @@ plot_cp <- function(dat, est, iso_code, CI = 95) {
 
   return(p)
 }
-
 ```
 
 
